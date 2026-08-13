@@ -1,0 +1,9 @@
+services:
+  reniec-api:
+    build: .
+    container_name: reniec-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
