@@ -17,7 +17,7 @@ services:
 
       DB_HOST: "192.168.0.107"
       DB_PORT: "6543"
-      DB_NAME: "reniec"
+      DB_NAME: "rec"
       DB_USER: "admin"
       DB_PASSWORD: "${DB_PASSWORD}"
 
