@@ -29,7 +29,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://ren.fama.net.pe",
+        "https://webren.fama.net.pe",
     ],
     allow_credentials=True,
     allow_methods=["*"],
