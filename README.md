@@ -118,3 +118,40 @@ Los índices trigram (`pg_trgm`) aceleran `ILIKE '%texto%'`.
 - Mantén la API detrás de Tailscale o un reverse proxy si será privada.
 - Añade rate limiting y auditoría antes de exponer consultas de datos personales.
 - No escribas credenciales directamente en el código; usa `.env` o secretos de Docker.
+
+## Cambios de búsqueda (prioridad RENIEC2)
+
+Las búsquedas con `table=all` ahora consultan primero `public.reniec2` y solo si no hay coincidencias consultan `public.reniec`.
+El límite por defecto es 20 y el máximo permitido es 100.
+
+### Filtro avanzado
+
+`GET /api/v1/reniec/filtro-avanzado`
+
+Parámetros opcionales:
+- `nombre`
+- `ape_paterno`
+- `ape_materno`
+- `departamento`
+- `provincia`
+- `distrito`
+- `estado_civil`
+- `nombre_padre`
+- `nombre_madre`
+- `sexo`
+- `limit` (1-100, por defecto 20)
+
+Se debe enviar por lo menos un filtro con valor. Los filtros vacíos se ignoran.
+
+Ejemplo:
+
+```bash
+curl -G 'https://apiren.fama.net.pe/api/v1/reniec/filtro-avanzado' \
+  --data-urlencode 'ape_paterno=Apaza' \
+  --data-urlencode 'departamento=Puno' \
+  --data-urlencode 'sexo=M' \
+  --data-urlencode 'limit=50' \
+  -H 'Authorization: Bearer TU_TOKEN'
+```
+
+Nota: `nom_padre` y `nom_madre` solo existen en `reniec2`; si se usa alguno de esos filtros y no existe coincidencia en `reniec2`, no es posible aplicar ese mismo filtro en `reniec`.

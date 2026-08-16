@@ -56,16 +56,19 @@ def _query(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
             return list(cur.fetchall())
 
 
-def search_documento(documento: str) -> list[dict[str, Any]]:
-    sql1 = f"SELECT {RENIEC_COLUMNS} FROM public.reniec WHERE nro_documento = %s"
-    sql2 = f"SELECT {RENIEC2_COLUMNS} FROM public.reniec2 WHERE nro_documento = %s"
+def _wrap(source: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{"source": source, "data": row} for row in rows]
 
-    results: list[dict[str, Any]] = []
-    for row in _query(sql1, (documento,)):
-        results.append({"source": "reniec", "data": row})
-    for row in _query(sql2, (documento,)):
-        results.append({"source": "reniec2", "data": row})
-    return results
+
+def search_documento(documento: str) -> list[dict[str, Any]]:
+    """Busca primero en reniec2 y solo si no existe, busca en reniec."""
+    sql2 = f"SELECT {RENIEC2_COLUMNS} FROM public.reniec2 WHERE nro_documento = %s"
+    rows = _query(sql2, (documento,))
+    if rows:
+        return _wrap("reniec2", rows)
+
+    sql1 = f"SELECT {RENIEC_COLUMNS} FROM public.reniec WHERE nro_documento = %s"
+    return _wrap("reniec", _query(sql1, (documento,)))
 
 
 def search_nombres(
@@ -92,21 +95,8 @@ def search_nombres(
         return []
 
     where = " AND ".join(conditions)
-    results: list[dict[str, Any]] = []
 
-    if table in ("reniec", "all"):
-        sql = f"""
-            SELECT {RENIEC_COLUMNS}
-            FROM public.reniec
-            WHERE {where}
-            ORDER BY ape_paterno, ape_materno, nombre
-            LIMIT %s
-        """
-        rows = _query(sql, tuple(params + [limit]))
-        results.extend({"source": "reniec", "data": row} for row in rows)
-
-    remaining = max(0, limit - len(results))
-    if table in ("reniec2", "all") and remaining > 0:
+    if table in ("reniec2", "all"):
         sql = f"""
             SELECT {RENIEC2_COLUMNS}
             FROM public.reniec2
@@ -114,28 +104,24 @@ def search_nombres(
             ORDER BY ape_paterno, ape_materno, nombre
             LIMIT %s
         """
-        rows = _query(sql, tuple(params + [remaining]))
-        results.extend({"source": "reniec2", "data": row} for row in rows)
+        rows = _query(sql, tuple(params + [limit]))
+        if rows or table == "reniec2":
+            return _wrap("reniec2", rows)
 
-    return results[:limit]
+    sql = f"""
+        SELECT {RENIEC_COLUMNS}
+        FROM public.reniec
+        WHERE {where}
+        ORDER BY ape_paterno, ape_materno, nombre
+        LIMIT %s
+    """
+    return _wrap("reniec", _query(sql, tuple(params + [limit])))
 
 
 def search_departamento(departamento: str, table: TableName, limit: int) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
+    term = f"%{departamento}%"
 
-    if table in ("reniec", "all"):
-        sql = f"""
-            SELECT {RENIEC_COLUMNS}
-            FROM public.reniec
-            WHERE nom_departamento ILIKE %s
-            ORDER BY ape_paterno, ape_materno, nombre
-            LIMIT %s
-        """
-        rows = _query(sql, (f"%{departamento}%", limit))
-        results.extend({"source": "reniec", "data": row} for row in rows)
-
-    remaining = max(0, limit - len(results))
-    if table in ("reniec2", "all") and remaining > 0:
+    if table in ("reniec2", "all"):
         sql = f"""
             SELECT {RENIEC2_COLUMNS}
             FROM public.reniec2
@@ -143,27 +129,24 @@ def search_departamento(departamento: str, table: TableName, limit: int) -> list
             ORDER BY ape_paterno, ape_materno, nombre
             LIMIT %s
         """
-        rows = _query(sql, (f"%{departamento}%", remaining))
-        results.extend({"source": "reniec2", "data": row} for row in rows)
+        rows = _query(sql, (term, limit))
+        if rows or table == "reniec2":
+            return _wrap("reniec2", rows)
 
-    return results[:limit]
+    sql = f"""
+        SELECT {RENIEC_COLUMNS}
+        FROM public.reniec
+        WHERE nom_departamento ILIKE %s
+        ORDER BY ape_paterno, ape_materno, nombre
+        LIMIT %s
+    """
+    return _wrap("reniec", _query(sql, (term, limit)))
 
 
 def search_ubigeo(ubigeo: str, table: TableName, limit: int) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
+    term = f"%{ubigeo}%"
 
-    if table in ("reniec", "all"):
-        sql = f"""
-            SELECT {RENIEC_COLUMNS}
-            FROM public.reniec
-            WHERE des_ubigeo ILIKE %s
-            LIMIT %s
-        """
-        rows = _query(sql, (f"%{ubigeo}%", limit))
-        results.extend({"source": "reniec", "data": row} for row in rows)
-
-    remaining = max(0, limit - len(results))
-    if table in ("reniec2", "all") and remaining > 0:
+    if table in ("reniec2", "all"):
         sql = f"""
             SELECT {RENIEC2_COLUMNS}
             FROM public.reniec2
@@ -171,25 +154,131 @@ def search_ubigeo(ubigeo: str, table: TableName, limit: int) -> list[dict[str, A
                OR des_ubigeo_nacimiento ILIKE %s
             LIMIT %s
         """
-        term = f"%{ubigeo}%"
-        rows = _query(sql, (term, term, remaining))
-        results.extend({"source": "reniec2", "data": row} for row in rows)
+        rows = _query(sql, (term, term, limit))
+        if rows or table == "reniec2":
+            return _wrap("reniec2", rows)
 
-    return results[:limit]
+    sql = f"""
+        SELECT {RENIEC_COLUMNS}
+        FROM public.reniec
+        WHERE des_ubigeo ILIKE %s
+        LIMIT %s
+    """
+    return _wrap("reniec", _query(sql, (term, limit)))
 
 
 def search_estado_civil(estado: str, table: TableName, limit: int) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
+    term = f"%{estado}%"
 
-    if table in ("reniec", "all"):
-        sql = f"SELECT {RENIEC_COLUMNS} FROM public.reniec WHERE des_estado_civil ILIKE %s LIMIT %s"
-        rows = _query(sql, (f"%{estado}%", limit))
-        results.extend({"source": "reniec", "data": row} for row in rows)
-
-    remaining = max(0, limit - len(results))
-    if table in ("reniec2", "all") and remaining > 0:
+    if table in ("reniec2", "all"):
         sql = f"SELECT {RENIEC2_COLUMNS} FROM public.reniec2 WHERE des_estado_civil ILIKE %s LIMIT %s"
-        rows = _query(sql, (f"%{estado}%", remaining))
-        results.extend({"source": "reniec2", "data": row} for row in rows)
+        rows = _query(sql, (term, limit))
+        if rows or table == "reniec2":
+            return _wrap("reniec2", rows)
 
-    return results[:limit]
+    sql = f"SELECT {RENIEC_COLUMNS} FROM public.reniec WHERE des_estado_civil ILIKE %s LIMIT %s"
+    return _wrap("reniec", _query(sql, (term, limit)))
+
+
+def search_avanzada(
+    nombre: str | None,
+    ape_paterno: str | None,
+    ape_materno: str | None,
+    departamento: str | None,
+    provincia: str | None,
+    distrito: str | None,
+    estado_civil: str | None,
+    nombre_padre: str | None,
+    nombre_madre: str | None,
+    sexo: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """
+    Filtro avanzado con prioridad RENIEC2 -> RENIEC.
+
+    En reniec2 departamento/provincia/distrito se buscan dentro de
+    des_ubigeo_direccion porque esa tabla no tiene columnas separadas.
+    nom_padre y nom_madre solo existen en reniec2; si se envía alguno de
+    esos filtros y reniec2 no encuentra coincidencias, no hay fallback
+    válido hacia reniec.
+    """
+    filters = {
+        "nombre": nombre,
+        "ape_paterno": ape_paterno,
+        "ape_materno": ape_materno,
+        "departamento": departamento,
+        "provincia": provincia,
+        "distrito": distrito,
+        "estado_civil": estado_civil,
+        "nombre_padre": nombre_padre,
+        "nombre_madre": nombre_madre,
+        "sexo": sexo,
+    }
+    if not any(value for value in filters.values()):
+        return []
+
+    # 1) RENIEC2 primero
+    conditions2: list[str] = []
+    params2: list[Any] = []
+
+    def add2(column: str, value: str | None) -> None:
+        if value:
+            conditions2.append(f"{column} ILIKE %s")
+            params2.append(f"%{value}%")
+
+    add2("nombre", nombre)
+    add2("ape_paterno", ape_paterno)
+    add2("ape_materno", ape_materno)
+    # reniec2 guarda el ubigeo/dirección como texto compuesto
+    add2("des_ubigeo_direccion", departamento)
+    add2("des_ubigeo_direccion", provincia)
+    add2("des_ubigeo_direccion", distrito)
+    add2("des_estado_civil", estado_civil)
+    add2("nom_padre", nombre_padre)
+    add2("nom_madre", nombre_madre)
+    add2("des_sexo", sexo)
+
+    sql2 = f"""
+        SELECT {RENIEC2_COLUMNS}
+        FROM public.reniec2
+        WHERE {' AND '.join(conditions2)}
+        ORDER BY ape_paterno, ape_materno, nombre
+        LIMIT %s
+    """
+    rows2 = _query(sql2, tuple(params2 + [limit]))
+    if rows2:
+        return _wrap("reniec2", rows2)
+
+    # nom_padre / nom_madre no existen en public.reniec.
+    if nombre_padre or nombre_madre:
+        return []
+
+    # 2) Solo si RENIEC2 no devolvió nada, buscar en RENIEC
+    conditions1: list[str] = []
+    params1: list[Any] = []
+
+    def add1(column: str, value: str | None) -> None:
+        if value:
+            conditions1.append(f"{column} ILIKE %s")
+            params1.append(f"%{value}%")
+
+    add1("nombre", nombre)
+    add1("ape_paterno", ape_paterno)
+    add1("ape_materno", ape_materno)
+    add1("nom_departamento", departamento)
+    add1("nom_provincia", provincia)
+    add1("nom_distrito", distrito)
+    add1("des_estado_civil", estado_civil)
+    add1("des_genero", sexo)
+
+    if not conditions1:
+        return []
+
+    sql1 = f"""
+        SELECT {RENIEC_COLUMNS}
+        FROM public.reniec
+        WHERE {' AND '.join(conditions1)}
+        ORDER BY ape_paterno, ape_materno, nombre
+        LIMIT %s
+    """
+    return _wrap("reniec", _query(sql1, tuple(params1 + [limit])))
