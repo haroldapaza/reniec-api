@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     db_max_pool: int = 10
 
     keycloak_url: str
+    keycloak_internal_url: str
     keycloak_realm: str
     keycloak_audience: str
     keycloak_allowed_username: str | None = None
