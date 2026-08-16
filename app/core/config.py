@@ -39,12 +39,16 @@ class Settings(BaseSettings):
 
     @property
     def keycloak_issuer(self) -> str:
-        return f"{self.keycloak_url.rstrip('/')}/realms/{self.keycloak_realm}"
-
+        return f"{self.keycloak_url}/realms/{self.keycloak_realm}"
+    
     @property
     def keycloak_jwks_url(self) -> str:
-        return f"{self.keycloak_issuer}/protocol/openid-connect/certs"
-
+        return (
+            f"{self.keycloak_internal_url}"
+            f"/realms/{self.keycloak_realm}"
+            f"/protocol/openid-connect/certs"
+        )
+        
     @property
     def cors_origins_list(self) -> list[str]:
         if not self.cors_origins.strip():
