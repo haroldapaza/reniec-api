@@ -32,17 +32,34 @@ def validate_token(
             issuer=settings.keycloak_issuer,
             options={"require": ["exp", "iat", "iss"]},
         )
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token expirado: {exc}",
+        ) from exc
+    
+    except jwt.InvalidAudienceError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Audience inválida: {exc}",
+        ) from exc
+    
+    except jwt.InvalidIssuerError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Issuer inválido: {exc}",
+        ) from exc
+    
+    except jwt.InvalidSignatureError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Firma inválida: {exc}",
+        ) from exc
+    
     except jwt.PyJWTError as exc:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No se pudo validar el token con Keycloak",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=401,
+            detail=f"{type(exc).__name__}: {exc}",
         ) from exc
 
     allowed_username = settings.keycloak_allowed_username
