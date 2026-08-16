@@ -24,7 +24,7 @@ services:
       DB_MIN_POOL: "1"
       DB_MAX_POOL: "10"
 
-      KEYCLOAK_URL: "http://192.168.0.107:8081"
+      KEYCLOAK_URL: "https://auth.fama.net.pe"
       KEYCLOAK_REALM: "reniec"
       KEYCLOAK_AUDIENCE: "reniec-api"
       KEYCLOAK_ALLOWED_USERNAME: "hard"
